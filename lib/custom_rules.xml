@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+<target name="-post-compile">
+    <!-- update cscope and ctags database file -->
+    <exec executable="find" failonerror="true">
+        <arg line=" . -name *.java"/>
+        <redirector output="cscope.files" />
+    </exec>
+    <exec executable="cscope" failonerror="true">
+        <arg line="-RUbq" />
+    </exec>
+    <exec executable="ctags" failonerror="true">
+        <arg line="-R ." />
+    </exec>
+</target>
+</project>

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+mv $DIR/../participant.apk $DIR/../participant-unsigned.apk
+cp $DIR/../participant-unsigned.apk $DIR/../participant-signed.apk
+jarsigner -verbose -sigalg MD5withRSA -digestalg SHA1 -keystore $DIR/../keys/build.keystore $DIR/../participant-signed.apk platform
+zipalign -f 4 $DIR/../participant-signed.apk $DIR/../participant.apk

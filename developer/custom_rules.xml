@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <target name="-post-build">
+        <echo>Stoping...</echo>
+        <exec executable="sh/stop" failonerror="fasle" />
+        <echo>Uninstalling...</echo>
+        <exec executable="sh/uninstall" failonerror="fasle" />
+    </target>
+    <target name="di" depends="debug, install">
+        <echo>Starting...</echo>
+        <exec executable="sh/start" failonerror="fasle" />
+    </target>
+</project>

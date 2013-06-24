@@ -1,0 +1,39 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.buffalo.cse.phonelab.harness.participant"
+    android:versionCode="14"
+    android:versionName="1.1"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:sharedUserId="android.uid.system">
+
+    <uses-sdk android:minSdkVersion="16" android:targetSdkVersion="16" />
+	
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_LOGS" />
+    
+    <application android:label="@string/app_name"
+        android:allowBackup='true'
+        android:icon="@drawable/ic_launcher"
+        android:theme="@style/AppTheme">
+        <receiver android:name=".StartReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>   
+        <service android:name=".StartService" tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="edu.buffalo.cse.phonelab.harness.participant.StartService" />
+            </intent-filter>
+        </service>
+        <service android:name="edu.buffalo.cse.phonelab.harness.lib.services.ManifestService"></service>
+        <service android:name="edu.buffalo.cse.phonelab.harness.lib.services.UploaderService"></service>
+    </application>
+</manifest>

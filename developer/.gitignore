@@ -1,0 +1,6 @@
+/gen
+/bin
+/.settings
+/local.properties
+/build.xml
+/.classpath

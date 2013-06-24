@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <ManifestService>
+    <checkInterval>1800</checkInterval>
+    <manifestURL>http://logger.phone-lab.org/manifest/</manifestURL>
+    <compareFiles>true</compareFiles>
+    <compareNodes>true</compareNodes>
+    <chunkedTransferMode>true</chunkedTransferMode>
+    <chunkSizeKB>1024</chunkSizeKB>
+  </ManifestService>
+  <UploaderService>
+    <checkInterval>900</checkInterval>
+    <loggerURL>http://logger.phone-lab.org/uploader/</loggerURL>
+    <powerpolicy>usbplug</powerpolicy>
+    <connectionTimeoutSec>10</connectionTimeoutSec>
+    <failureCount>8</failureCount>
+    <chunkedTransferMode>true</chunkedTransferMode>
+    <chunkSizeKB>1024</chunkSizeKB>
+  </UploaderService>
+  <LogcatService>
+    <checkInterval>900</checkInterval>
+    <run>true</run>
+    <format>threadtime</format>
+    <fileSize>100</fileSize>
+    <fileCount>1024</fileCount>
+    <tags>
+      <tag name="*" level="V" />
+    </tags>
+  </LogcatService>
+  <LauncherService>
+    <checkInterval>900</checkInterval>
+    <runningServices></runningServices>
+    <stoppedServices></stoppedServices>
+  </LauncherService>
+  <LogcatGeneratorService>
+    <checkInterval>900</checkInterval>
+  </LogcatGeneratorService>
+  <DataGeneratorGeneratorService>
+    <checkInterval>900</checkInterval>
+    <lengthKB>1024</lengthKB>
+    <maxRepeats>16</maxRepeats>
+  </DataGeneratorGeneratorService>
+</manifest>

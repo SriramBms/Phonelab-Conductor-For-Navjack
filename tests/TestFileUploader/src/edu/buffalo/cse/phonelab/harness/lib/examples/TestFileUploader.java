@@ -2,13 +2,12 @@ package edu.buffalo.cse.phonelab.harness.lib.examples;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -44,7 +43,8 @@ public class TestFileUploader extends Activity
         (new Thread(new WorkerThread(getApplicationContext()))).start();
     }
 
-    class WorkerThread implements Runnable {
+    @SuppressLint("WorldReadableFiles")
+	class WorkerThread implements Runnable {
         private final String FILE_NAME_BASE = "TEST_FILE_UPLOAD.";
         private Context context;
 

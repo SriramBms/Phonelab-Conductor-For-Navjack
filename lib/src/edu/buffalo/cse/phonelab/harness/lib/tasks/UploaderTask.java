@@ -56,18 +56,28 @@ public class UploaderTask extends PeriodicTask<UploaderParameters, UploaderState
 		addAction(Intent.ACTION_POWER_DISCONNECTED);
 		addAction(ConnectivityManager.CONNECTIVITY_ACTION);
 	}
+
+	private boolean taskRunning = false;
+	
+	@Override
+	public void start() {
+		taskRunning = true;
+		super.start();
+	}
 	
 	@Override
 	public void stop() {
 		synchronized (parameterLock) {
 			disableUpload(parameters);
+			taskRunning = false;
 		}
 		super.stop();
 	}
-	
+
 	private boolean uploadEnabled = false;
+	
 	@Override
-	public void check(UploaderParameters parameters) { 
+	public void check(UploaderParameters parameters) {
 		if (canUpload(parameters) == true) {
 			Log.v(TAG, "Enabling upload.");
 			enableUpload(parameters);
@@ -237,6 +247,10 @@ public class UploaderTask extends PeriodicTask<UploaderParameters, UploaderState
 	private boolean canUpload(UploaderParameters parameters) {
 		
 		synchronized (stateLock) {
+			
+			if (this.taskRunning == false) {
+				return false;
+			}
 			
 			try {
 				if (((ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo().isConnected() == false) {	

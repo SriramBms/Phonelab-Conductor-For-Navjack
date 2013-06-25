@@ -1,2 +1,3 @@
 #!/usr/bin/env bash
 adb shell am broadcast -a edu.buffalo.cse.phonelab.harness.lib.services.ManifestService.StopService
+adb shell am broadcast -a edu.buffalo.cse.phonelab.harness.lib.services.UploaderService.StopService

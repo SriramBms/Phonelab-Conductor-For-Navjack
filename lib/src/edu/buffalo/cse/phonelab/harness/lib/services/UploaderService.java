@@ -3,7 +3,10 @@ package edu.buffalo.cse.phonelab.harness.lib.services;
 import edu.buffalo.cse.phonelab.harness.lib.interfaces.UploaderClient;
 import edu.buffalo.cse.phonelab.harness.lib.tasks.UploaderTask;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
@@ -56,17 +59,22 @@ public class UploaderService extends Service {
 			return START_STICKY;
 		}
 		
-		started = true;
+        Log.v(TAG, "-------------- STARTING UPLOADER SERVICE ---------------");
 		super.onStartCommand(intent, flags, startId);
 		
-		try {
-			uploaderTask = new UploaderTask(getApplicationContext());
-			uploaderTask.start();
-		} catch (Exception e) {
-			started = false;
-			Log.e(TAG, e.toString());
+		if (uploaderTask == null) {
+			try {
+				uploaderTask = new UploaderTask(getApplicationContext());
+			} catch (Exception e) {
+				started = false;
+				Log.e(TAG, e.toString());
+			}
 		}
 		
+		uploaderTask.start();
+		
+		registerReceiver(stopReceiver, stopIntentFilter);
+		started = true;
 		return START_STICKY;
 	}
 	
@@ -76,9 +84,23 @@ public class UploaderService extends Service {
 			Log.v(TAG, "Not stopping stopped service.");
 			return;
 		}
-		super.onDestroy();
-		uploaderTask.stop();
+		if (uploaderTask != null) {
+			uploaderTask.stop();
+		}
 		uploaderTask = null;
+		
+		super.onDestroy();
 		started = false;
+		Log.v(TAG, "-------------- STOPPED UPLOADER SERVICE ---------------");
 	}
+	
+	private final String stopIntentName = this.getClass().getName() + ".StopService";
+    private IntentFilter stopIntentFilter = new IntentFilter(stopIntentName);
+    private BroadcastReceiver stopReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context arg0, Intent arg1) {
+            Log.v(TAG, "Received stop command.");
+            UploaderService.this.onDestroy();
+        }
+    };
 }

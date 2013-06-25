@@ -165,6 +165,7 @@ public class LogcatTask extends PeriodicTask<LogcatParameters, LogcatState> impl
 				Log.v(TAG, "Upload list too long. Destroying logs for " + stoppedLogcatProcess);
 				destroyingLogcatProcesses.add(stoppedLogcatProcess);		
 			} else {
+				Log.v(TAG, "Adding " + oldFiles);
 				Log.v(TAG, "Adding old log files for " + stoppedLogcatProcess);
 				uploaderFiles.addAll(oldFiles);
 			}
@@ -181,6 +182,8 @@ public class LogcatTask extends PeriodicTask<LogcatParameters, LogcatState> impl
 		}
 		
 		try {
+			ArrayList<File> newFiles = logcatProcess.getLogFiles();
+			Log.v(TAG, "Adding " + newFiles);
 			uploaderFiles.addAll(logcatProcess.getLogFiles());
 		} catch (Exception e) {
 			Log.e(TAG, "Unable to get list of log files to upload for current process: " + e);
@@ -622,9 +625,9 @@ class LogcatProcess implements Comparable<LogcatProcess> {
 			for (File f1 : this.logcatDir.listFiles()) {
 				f1.delete();
 			}
-		}
-		if (this.logcatDir.delete() == false) {
-			throw new Exception("Unable to delete PID directory.");
+			if (this.logcatDir.delete() == false) {
+				throw new Exception("Unable to delete PID directory.");
+			}
 		}
 	}
 	
@@ -651,11 +654,7 @@ class LogcatProcess implements Comparable<LogcatProcess> {
 		public boolean accept(File pathname) {
 			String filename = pathname.getName();
 			if (filename.startsWith(LogcatProcess.LOG_FILENAME) == true) {
-				if (LogcatProcess.this.isRunning() == false) {
-					return true;
-				} else {
-					return (filename.equals(LogcatProcess.LOG_FILENAME) == false);
-				}
+				return true;
 			} else {
 				return false;
 			}
@@ -682,21 +681,17 @@ class LogcatProcess implements Comparable<LogcatProcess> {
 		Collections.sort(logcatFiles, new Comparator<File>() {
 			@Override
 			public int compare(File f1, File f2) {
-				Integer ext1 = 0;
-				try {
-					ext1 = Integer.valueOf(f1.getName().substring(f1.getName().lastIndexOf('.') + 1));
-				} catch (Exception e) {}
-				
-				Integer ext2 = 0;
-				try {
-					ext2 = Integer.valueOf(f2.getName().substring(f2.getName().lastIndexOf('.') + 1));
-				} catch (Exception e) {}
-				
+				Long ext1 = f1.lastModified();
+				Long ext2 = f2.lastModified();
 				return ext1.compareTo(ext2);
 			}
 		});
-		Collections.reverse(logcatFiles);
-		return new ArrayList<File>(logcatFiles);
+		
+		if (LogcatProcess.this.isRunning()) {
+			logcatFiles = new ArrayList<File>(logcatFiles.subList(0, logcatFiles.size() - 1));
+		}
+		
+		return logcatFiles;
 	}
 
 	@Override

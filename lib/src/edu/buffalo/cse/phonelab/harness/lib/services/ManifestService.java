@@ -25,21 +25,6 @@ public class ManifestService extends Service {
     UsageTrackingTask usageTrackingTask;
     FileUploaderTask fileUploaderTask;
 
-    
-    @Override
-    public void onCreate() {
-        try {
-            manifestTask = new ManifestTask(getApplicationContext());
-        } catch (Exception e) {
-            Log.e(TAG, "Error creating manifest task : " + e);
-            return;
-        }
-        logcatTask = new LogcatTask(getApplicationContext());
-        launcherTask = new LauncherTask(getApplicationContext());
-        usageTrackingTask = new UsageTrackingTask(getApplicationContext());
-        fileUploaderTask = new FileUploaderTask(getApplicationContext());
-    }
-
     private boolean started = false;
     
     @Override
@@ -48,9 +33,54 @@ public class ManifestService extends Service {
             Log.v(TAG, "Not restarting manifest service");
             return START_STICKY;
         }
+        
         Log.v(TAG, "-------------- STARTING MANIFEST SERVICE ---------------");
-        started = true;
         super.onStartCommand(intent, flags, startId);
+        
+        if (manifestTask == null) {
+        	try {
+                manifestTask = new ManifestTask(getApplicationContext());
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating manifest task : " + e);
+                return START_STICKY;
+            }
+        }
+        
+        if (logcatTask == null) {
+        	try {
+        		logcatTask = new LogcatTask(getApplicationContext());
+        	} catch (Exception e) {
+        		Log.e(TAG, "Error creating logcat task : " + e);
+        		return START_STICKY;
+        	}
+        }
+        
+        if (launcherTask == null) {
+        	try {
+        		launcherTask = new LauncherTask(getApplicationContext());
+        	} catch (Exception e) {
+        		Log.e(TAG, "Error creating launcher task : " + e);
+        		return START_STICKY;
+        	}
+        }
+        
+        if (usageTrackingTask == null) {
+        	try {
+        		usageTrackingTask = new UsageTrackingTask(getApplicationContext());
+        	} catch (Exception e) {
+        		Log.e(TAG, "Error creating usage tracking task : " + e);
+        		return START_STICKY;
+        	}
+        }
+        
+        if (fileUploaderTask == null) {
+        	try {
+        		fileUploaderTask = new FileUploaderTask(getApplicationContext());
+        	} catch (Exception e) {
+        		Log.e(TAG, "Error creating file uploader task : " + e);
+        		return START_STICKY;
+        	}
+        }
         
         manifestTask.start();
         logcatTask.start();
@@ -58,7 +88,8 @@ public class ManifestService extends Service {
         usageTrackingTask.start();
         fileUploaderTask.start();
         
-        registerReceiver(stopReceiver, stopIntentFilter);       
+        registerReceiver(stopReceiver, stopIntentFilter);
+        started = true;
         return START_STICKY;
     }
     
@@ -66,21 +97,29 @@ public class ManifestService extends Service {
     public synchronized void onDestroy() {
         unregisterReceiver(stopReceiver);
         
-        launcherTask.stop();
+        if (launcherTask != null) {
+        	launcherTask.stop();
+        }
         launcherTask = null;
-        logcatTask.stop();
+        
+        if (logcatTask != null) {
+        	logcatTask.stop();
+        }
         logcatTask = null;
         
-        Intent intent = new Intent(UploaderService.class.getName());
-        getApplicationContext().stopService(intent);
-        
-        usageTrackingTask.stop();
-        usageTrackingTask = null;
-
-        fileUploaderTask.stop();
+        if (fileUploaderTask != null) {
+        	fileUploaderTask.stop();
+        }
         fileUploaderTask = null;
 
-        manifestTask.stop();
+        if (usageTrackingTask != null) {
+        	usageTrackingTask.stop();
+        }
+        usageTrackingTask = null;
+        
+        if (manifestTask != null) {
+        	manifestTask.stop();
+        }
         manifestTask = null;
 
         super.onDestroy();

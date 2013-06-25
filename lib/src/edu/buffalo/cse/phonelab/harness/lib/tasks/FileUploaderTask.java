@@ -1,14 +1,17 @@
 package edu.buffalo.cse.phonelab.harness.lib.tasks;
 
 import java.io.File;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.Set;
 
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.Root;
+import org.simpleframework.xml.Serializer;
+import org.simpleframework.xml.core.Persister;
 
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -37,9 +40,11 @@ public class FileUploaderTask extends PeriodicTask<FileUploaderParameters, FileU
 
     public final String ACTION_UPLOAD = this.getClass().getName() + ".UPLOAD";
     public final String ACTION_UPLOAD_COMPLETED = this.getClass().getName() + ".UPLOAD_COMPLETED";
+    
     public final String BUNDLE_KEY_PATH_LIST = this.getClass().getName() + ".PATH_LIST";
+    public final String BUNDLE_KEY_PACKAGENAME = this.getClass().getName() + ".PACKAGENAME";
 
-    private Set<String> filesToUpload;
+    private Set<UploaderFileDescription> uploadFiles;
     private SharedPreferences sharedPreferences;
     private Context context;
     private FileUploaderReceiver fileUploaderReceiver;
@@ -61,100 +66,90 @@ public class FileUploaderTask extends PeriodicTask<FileUploaderParameters, FileU
             persistUploadFileList();
         }
     };
-
+    
     public FileUploaderTask(Context context) {
         super(context, "FileUploaderService");
         this.context = context;
 
-        filesToUpload = Collections.synchronizedSet(new LinkedHashSet<String>());
+        uploadFiles = Collections.synchronizedSet(new HashSet<UploaderFileDescription>());
         sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
-        /* try to recover upload file list from shared preference */
         recoverUploadFileList();
-
-        /* register for uploader service */
+        
         context.bindService(new Intent(context, UploaderService.class), uploaderServiceConnection, Context.BIND_AUTO_CREATE);
 
         IntentFilter intentFilter = new IntentFilter(ACTION_UPLOAD);
         fileUploaderReceiver = new FileUploaderReceiver();
         context.registerReceiver(fileUploaderReceiver, intentFilter);
-
-        Log.i(TAG, "Upload intent action is " + ACTION_UPLOAD);
-        Log.i(TAG, "Upload complete intent action is " + ACTION_UPLOAD_COMPLETED);
-        Log.i(TAG, "Upload intent bundle key for path list is " + BUNDLE_KEY_PATH_LIST);
     }
-
-
+        
     @Override
     protected void check(FileUploaderParameters parameters) {
         updateUploadFiles();
-        Log.v(TAG, filesToUpload.size() + " files to be uploaded");
-    }
-
-    /*
-     * return true if file exists, and is a regular file (not directory), and is readable 
-     * returns false otherwise
-     * */
-    private boolean isFileAvailable(String path) {
-        File file = new File(path);
-        if (!file.exists()) {
-            Log.e(TAG, "File " + file.getAbsolutePath() + " doesn't exist.");
-            return false;
-        }
-        if (!file.isFile()) {
-            Log.e(TAG, "File " + file.getAbsolutePath() + " is not a regular file.");
-            return false;
-        }
-        if (!file.canRead()) {
-            Log.e(TAG, "File " + file.getAbsolutePath() + " is not readable.");
-            return false;
-        }
-        return true;
+        Log.v(TAG, uploadFiles.size() + " files to be uploaded");
     }
 
     private void updateUploadFiles() {
-        if (filesToUpload.size() == 0) {
-            recoverUploadFileList();
-        }
-
+    	
         state.bytesAvailable = 0;
         state.filesAvailable = 0;
-        Iterator<String> iterator = filesToUpload.iterator();
+        Iterator<UploaderFileDescription> iterator = uploadFiles.iterator();
 
         while (iterator.hasNext()) {
-            String path = iterator.next();
-            if (isFileAvailable(path)) {
-                state.bytesAvailable += (new File(path)).length();
+            UploaderFileDescription uploadFile = iterator.next();
+            if (uploadFile.exists() == true) {
+                state.bytesAvailable += uploadFile.len;
                 state.filesAvailable++;
-            }
-            else {
+            } else {
                 iterator.remove();
             }
         }
         persistUploadFileList();
     }
 
-    private void recoverUploadFileList() {
+    private synchronized void recoverUploadFileList() {
         if (sharedPreferences == null) {
             Log.w(TAG, "sharedPreferences not initiated.");
             return;
         }
-
-        Set<String> files = sharedPreferences.getStringSet(PREFS_KEY, null);
-        if (files != null) {
-            filesToUpload.addAll(files);
+        
+        for (String serializedUpload : sharedPreferences.getStringSet(PREFS_KEY, new HashSet<String>())) {
+        	UploaderFileDescription uploadFile;
+        	try {
+        		uploadFile = new Persister().read(UploaderFileDescription.class, serializedUpload);
+        	} catch (Exception e) {
+        		Log.e(TAG, "Problem deserializing upload file from string " + serializedUpload + ": " + e);
+        		continue;
+        	}
+        	uploadFiles.add(uploadFile);
         }
+        Log.v(TAG, "Successfully deserialized upload files.");
     }
 
-    private void persistUploadFileList() {
+    private synchronized void persistUploadFileList() {
         if (sharedPreferences == null) {
             Log.w(TAG, "sharedPreferences not initiated.");
             return;
         }
 
         SharedPreferences.Editor editor = sharedPreferences.edit();
-
-        editor.putStringSet(PREFS_KEY, filesToUpload);
+        Set<String> serializedUploadFiles = new HashSet<String>();
+        
+        for (UploaderFileDescription uploadFile : uploadFiles) {
+        	StringWriter stringWriter = new StringWriter();
+        	Serializer serializer = new Persister();
+        	try {
+        		serializer.write(uploadFile, stringWriter);
+        	} catch (Exception e) {
+        		Log.e(TAG, "Problem serializing upload file: " + e);
+        		continue;
+        	}
+        	String serializedUpload = stringWriter.toString();
+        	serializedUploadFiles.add(serializedUpload);
+        }
+        
+        editor.putStringSet(PREFS_KEY, serializedUploadFiles);
+        Log.v(TAG, "Successfully serialized upload files.");
         editor.commit();
     }
 
@@ -195,29 +190,26 @@ public class FileUploaderTask extends PeriodicTask<FileUploaderParameters, FileU
             Log.v(TAG, "Broadcasting upload complete intent for file " + path);
             context.sendBroadcast(intent);
 
-            filesToUpload.remove(path);
+            uploadFiles.remove(path);
             persistUploadFileList();
         }
     }
 
     @Override
     public boolean hasNext() {
-        return !filesToUpload.isEmpty();
+        return !uploadFiles.isEmpty();
     }
 
     @Override
     public UploaderFileDescription next() {
-        Iterator<String> iterator = filesToUpload.iterator();
+        Iterator<UploaderFileDescription> iterator = uploadFiles.iterator();
         while (iterator.hasNext()) {
-            File file = new File(iterator.next());
-            /* last check */
-            if (isFileAvailable(file.getAbsolutePath())) {
-                return new UploaderFileDescription(file.getAbsolutePath(), file.getAbsolutePath().replace("/data/data/", "").replace("files/", ""), file.length());
+        	UploaderFileDescription uploadFile = iterator.next();
+            if (uploadFile.exists() == true) {
+            	return uploadFile;
+            } else {
+            	iterator.remove();
             }
-            else {
-                iterator.remove();
-            }
-
         }
         return null;
     }
@@ -244,27 +236,39 @@ public class FileUploaderTask extends PeriodicTask<FileUploaderParameters, FileU
 
         @Override
         public void onReceive(Context context, Intent intent) {
+        	
             if (intent.getAction().equals(ACTION_UPLOAD)) {
                 Bundle bundle = intent.getExtras();
-
+                String packagename;
+                ArrayList<String> paths;
+                
+                if (bundle.containsKey(BUNDLE_KEY_PACKAGENAME)) {
+                	packagename = bundle.getString(BUNDLE_KEY_PACKAGENAME);
+                } else {
+                	Log.e(TAG, "Bundle doesn't contain packagename.");
+                	return;
+                }
+                
                 if (bundle.containsKey(BUNDLE_KEY_PATH_LIST)) {
-                    ArrayList<String> pathList = bundle.getStringArrayList(BUNDLE_KEY_PATH_LIST);
-                    Iterator<String> iterator = pathList.iterator();
-                    while (iterator.hasNext()) {
-                        String path = iterator.next();
-                        if (isFileAvailable(path) && !filesToUpload.contains(path)) {
-                            Log.v(TAG, "Adding file " + path);
-                            filesToUpload.add(path);
-                        }
-                    }
-                    persistUploadFileList();
+                    paths = bundle.getStringArrayList(BUNDLE_KEY_PATH_LIST);
+                } else {
+                	Log.e(TAG, "Bundle doesn't contain file list.");
+                	return;
                 }
-                else {
-                    Log.e(TAG, "Intent bundle doesn't contain valid key.");
+                
+                for (String path : paths) {
+                	UploaderFileDescription uploadFile;
+                	try {
+                		uploadFile = new UploaderFileDescription(path, new File(path).getName(), packagename);
+                	} catch (Exception e) {
+                		Log.w(TAG, "Couldn't create upload file from path " + path + ": " + e);
+                		continue;
+                	}
+                	uploadFiles.add(uploadFile);
                 }
-            }
-            else {
-                Log.e(TAG, "Unknown intent " + intent.toString());
+                
+                persistUploadFileList();
+                return;
             }
         }
     }

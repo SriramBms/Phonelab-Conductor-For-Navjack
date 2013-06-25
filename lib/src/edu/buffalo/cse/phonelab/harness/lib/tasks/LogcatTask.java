@@ -264,10 +264,12 @@ public class LogcatTask extends PeriodicTask<LogcatParameters, LogcatState> impl
 			
 			Log.v(TAG, "Uploading " + currentFile.getName());
 			
-			if (currentFile.exists() == true) {
-				return new UploaderFileDescription(currentFile.getAbsolutePath(), LogcatProcess.LOG_FILENAME, currentFile.length());
-			} else {
-				Log.e(TAG, "File in upload list disappeared before we could upload it.");
+			UploaderFileDescription uploadFile;
+			try {
+				uploadFile = new UploaderFileDescription(currentFile.getAbsolutePath(), LogcatProcess.LOG_FILENAME, LogcatTask.this.getClass().getName());
+				return uploadFile;
+			} catch (Exception e) {
+				Log.e(TAG, "Exception when gathering upload file list: " + e);
 				updateUploaderFiles();
 				clearCurrentFile();
 				return null;

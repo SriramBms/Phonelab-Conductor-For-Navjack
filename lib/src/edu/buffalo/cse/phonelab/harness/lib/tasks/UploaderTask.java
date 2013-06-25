@@ -172,8 +172,8 @@ public class UploaderTask extends PeriodicTask<UploaderParameters, UploaderState
 						url = new URL(currentParameters.loggerURL + 
 									  Util.getVersionName(context) + 
 									  "/" + Util.getDeviceID(UploaderTask.this.context) +
-									  "/" + uploaderFileDescription.uploader.getClass().getName() +
-									  "/" + uploaderFileDescription.dest);
+									  "/" + uploaderFileDescription.packagename +
+									  "/" + uploaderFileDescription.filename);
 						
 					} catch (Exception e) {
 						Log.e(TAG, "Unable to construct URL: " + e);
@@ -401,6 +401,10 @@ public class UploaderTask extends PeriodicTask<UploaderParameters, UploaderState
 					throw new NoSuchElementException();
 				}
 				next.uploader = orderedUploaders.get(position).uploaderClient;
+				
+				if (next.packagename == null) {
+					next.packagename = next.uploader.getClass().getName();
+				}
 				return next;
 			}
 

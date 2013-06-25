@@ -22,6 +22,7 @@ public class TestFileUploader extends Activity
     private final String TAG = this.getClass().getSimpleName();
     private final String ACTION_UPLOAD = "edu.buffalo.cse.phonelab.harness.lib.tasks.FileUploaderTask.UPLOAD";
     private final String ACTION_UPLOAD_COMPLETED = "edu.buffalo.cse.phonelab.harness.lib.tasks.FileUploaderTask.UPLOAD_COMPLETED";
+    private final String BUNDLE_KEY_PACKAGENAME = "edu.buffalo.cse.phonelab.harness.lib.tasks.FileUploaderTask.PACKAGENAME";
     private final String BUNDLE_KEY_PATH_LIST = "edu.buffalo.cse.phonelab.harness.lib.tasks.FileUploaderTask.PATH_LIST";
     private int counter;
     /* maxium file number generated during an internval */
@@ -59,6 +60,7 @@ public class TestFileUploader extends Activity
                 fileList.add(context.getFileStreamPath(fileName).getAbsolutePath());
             }
             Intent uploadIntent = new Intent(ACTION_UPLOAD);
+            uploadIntent.putExtra(BUNDLE_KEY_PACKAGENAME, TestFileUploader.this.getClass().getName());
             uploadIntent.putStringArrayListExtra(BUNDLE_KEY_PATH_LIST, fileList);
             context.sendBroadcast(uploadIntent);
 

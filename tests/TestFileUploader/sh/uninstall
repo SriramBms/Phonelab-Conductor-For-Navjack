@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+adb uninstall edu.buffalo.cse.phonelab.harness.lib.examples

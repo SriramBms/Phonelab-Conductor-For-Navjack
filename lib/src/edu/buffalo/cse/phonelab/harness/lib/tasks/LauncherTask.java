@@ -11,8 +11,10 @@ import org.simpleframework.xml.Root;
 
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningServiceInfo;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.util.Log;
 import edu.buffalo.cse.phonelab.harness.lib.periodictask.PeriodicParameters;
 import edu.buffalo.cse.phonelab.harness.lib.periodictask.PeriodicState;
@@ -73,17 +75,37 @@ public class LauncherTask extends PeriodicTask<LauncherParameters, LauncherState
 		}
 	}
 	
+	public BroadcastReceiver packageReceiver = new BroadcastReceiver() {
+		@Override
+		public void onReceive(Context arg0, Intent arg1) {
+			Log.v(TAG, "Package intent fired.");
+			scheduleCheckTask();
+		}
+	};
+	
+	IntentFilter packageIntentFilter;
+	
 	public LauncherTask(Context context) {
 		super(context, "LauncherService");
 		this.startPeriodicTimer = false;
-		addAction(Intent.ACTION_PACKAGE_ADDED);
-		addAction(Intent.ACTION_PACKAGE_REMOVED);
-		addAction(Intent.ACTION_PACKAGE_REPLACED);
-		intentFilter.addDataScheme("package");
+		
+		packageIntentFilter = new IntentFilter();
+		packageIntentFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
+		packageIntentFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+		packageIntentFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+		packageIntentFilter.addDataScheme("package");
+	}
+	
+	@Override
+	public synchronized void start () {
+		this.context.registerReceiver(packageReceiver, packageIntentFilter);
+		super.start();
 	}
 	
 	@Override
 	public void stop() {
+		this.context.unregisterReceiver(packageReceiver);
+		
 		LauncherParameters shutdownParameters = new LauncherParameters();
 		shutdownParameters.stoppedServices.addAll(parameters.runningServices);
 		shutdownParameters.stoppedServices.addAll(parameters.stoppedServices);

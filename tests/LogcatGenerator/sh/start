@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+adb shell am startservice edu.buffalo.cse.phonelab.testing.logcatgenerator/.LogcatGeneratorService

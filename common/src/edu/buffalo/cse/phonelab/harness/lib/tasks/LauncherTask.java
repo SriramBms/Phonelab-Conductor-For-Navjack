@@ -30,15 +30,15 @@ public class LauncherTask extends PeriodicTask<LauncherParameters, LauncherState
 		HashSet<String> runningServices = new HashSet<String>();
 		ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);	
 		for (RunningServiceInfo runningServiceInfo : activityManager.getRunningServices(Integer.MAX_VALUE)) {
-			runningServices.add(runningServiceInfo.service.getClassName());
+			runningServices.add(runningServiceInfo.service.getPackageName());
 		}
 		
 		synchronized(stateLock) {
 			state.runningServices.clear();
 			for (ScheduledService startingService : parameters.currentRunningServices(now)) {
-				if (runningServices.contains(startingService.intentName)) {
+				if (runningServices.contains(startingService.packageName)) {
 					state.runningServices.add(startingService);
-					Log.v(TAG, "PhoneLab service " + startingService.intentName + " is running.");
+					Log.v(TAG, "PhoneLab service " + startingService + " is running.");
 				} else {
 					Log.v(TAG, "Starting PhoneLab service " + startingService);
 					try {
@@ -47,23 +47,32 @@ public class LauncherTask extends PeriodicTask<LauncherParameters, LauncherState
 							throw new Exception("startService() failed.");
 						}
 					} catch (Exception e) {
-						Log.e(TAG, "Unable to start " + startingService.intentName + ": " + e);
+						Log.e(TAG, "Unable to start " + startingService + ": " + e);
 					}
 				}
 			}
 			
 			for (ScheduledService stoppingService : parameters.currentStoppedServices(now)) {
-				if (!(runningServices.contains(stoppingService.intentName))) {
-					Log.v(TAG, "PhoneLab service " + stoppingService.intentName + " is not running.");
+				if (!(runningServices.contains(stoppingService.packageName))) {
+					Log.v(TAG, "PhoneLab service " + stoppingService + " is not running.");
 				} else {
 					state.runningServices.add(stoppingService);
-					Log.v(TAG, "Stopping PhoneLab service " + stoppingService.intentName);
+					Log.v(TAG, "Stopping PhoneLab service " + stoppingService);
 					try {
 						Intent stoppingIntent = new Intent(stoppingService.intentName);
 						context.stopService(stoppingIntent);
 					} catch (Exception e) {
-						Log.e(TAG, "Unable to stop " + stoppingService.intentName + ": " + e);
+						Log.e(TAG, "Unable to stop " + stoppingService + ": " + e);
 					}
+				}
+			}
+			
+			for (ScheduledService checkingService : parameters.currentCheckingServices(now)) {
+				if (!(runningServices.contains(checkingService.packageName))) {
+					Log.v(TAG, "PhoneLab service " + checkingService + " is not running.");
+				} else {
+					state.runningServices.add(checkingService);
+					Log.v(TAG, "PhoneLab service " + checkingService + " is running.");
 				}
 			}
 		
@@ -144,16 +153,21 @@ class LauncherParameters extends PeriodicParameters {
 	@ElementList(type=ScheduledService.class)
 	public HashSet<ScheduledService> stoppedServices;
 	
+	@ElementList(type=ScheduledService.class)
+	public HashSet<ScheduledService> checkingServices;
+	
 	public LauncherParameters() {
 		super();
 		runningServices = new HashSet<ScheduledService>();
 		stoppedServices = new HashSet<ScheduledService>();
+		checkingServices = new HashSet<ScheduledService>();
 	}
 	
 	public LauncherParameters(LauncherParameters parameters) {
 		super(parameters);
 		runningServices = new HashSet<ScheduledService>(parameters.runningServices);
 		stoppedServices = new HashSet<ScheduledService>(parameters.stoppedServices);
+		checkingServices = new HashSet<ScheduledService>(parameters.checkingServices);
 	}
 	
 	private HashSet<ScheduledService> filterServices(HashSet<ScheduledService> services, Date now) {
@@ -174,6 +188,10 @@ class LauncherParameters extends PeriodicParameters {
 		return filterServices(stoppedServices, now);
 	}
 	
+	public HashSet<ScheduledService> currentCheckingServices(Date now) {
+		return filterServices(checkingServices, now);
+	}
+	
 	public Date nextEvent(Date now) {
 		Date currentNext = new Date(Long.MAX_VALUE);
 		ArrayList<ScheduledService> allServices = new ArrayList<ScheduledService>(runningServices);
@@ -188,23 +206,28 @@ class LauncherParameters extends PeriodicParameters {
 		}
 		return currentNext;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "LauncherParameters [runningServices=" + runningServices
-				+ ", stoppedServices=" + stoppedServices + ", checkInterval="
-				+ checkInterval + "]";
+				+ ", stoppedServices=" + stoppedServices
+				+ ", checkingServices=" + checkingServices + "]";
 	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = super.hashCode();
+		result = prime
+				* result
+				+ ((checkingServices == null) ? 0 : checkingServices.hashCode());
 		result = prime * result
 				+ ((runningServices == null) ? 0 : runningServices.hashCode());
 		result = prime * result
 				+ ((stoppedServices == null) ? 0 : stoppedServices.hashCode());
 		return result;
 	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -214,6 +237,11 @@ class LauncherParameters extends PeriodicParameters {
 		if (getClass() != obj.getClass())
 			return false;
 		LauncherParameters other = (LauncherParameters) obj;
+		if (checkingServices == null) {
+			if (other.checkingServices != null)
+				return false;
+		} else if (!checkingServices.equals(other.checkingServices))
+			return false;
 		if (runningServices == null) {
 			if (other.runningServices != null)
 				return false;
@@ -239,31 +267,38 @@ class ScheduledService {
 	@Element
 	public String intentName;
 	
+	@Element
+	public String packageName;
+	
 	public ScheduledService() {
 		super();
 		this.startTime = new Date(0L);
 		this.endTime = new Date(Long.MAX_VALUE);
 	}
 	
-	public ScheduledService(String intentName) {
+	public ScheduledService(String intentName, String packageName) {
 		super();
 		this.intentName = intentName;
+		this.packageName = packageName;
 		this.startTime = new Date(0L);
 		this.endTime = new Date(Long.MAX_VALUE);
 	}
 	
-	public ScheduledService(Date startTime, Date endTime, String intentName) {
+	public ScheduledService(Date startTime, Date endTime, String intentName, String packageName) {
 		super();
 		this.startTime = startTime;
 		this.endTime = endTime;
 		this.intentName = intentName;
+		this.packageName = packageName;
 	}
-	
+
 	@Override
 	public String toString() {
-		return "ScheduledService [intentName=" + intentName + ", startTime="
-				+ startTime + ", endTime=" + endTime + "]";
+		return "ScheduledService [startTime=" + startTime + ", endTime="
+				+ endTime + ", intentName=" + intentName + ", packageName="
+				+ packageName + "]";
 	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -272,9 +307,12 @@ class ScheduledService {
 		result = prime * result
 				+ ((intentName == null) ? 0 : intentName.hashCode());
 		result = prime * result
+				+ ((packageName == null) ? 0 : packageName.hashCode());
+		result = prime * result
 				+ ((startTime == null) ? 0 : startTime.hashCode());
 		return result;
 	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -293,6 +331,11 @@ class ScheduledService {
 			if (other.intentName != null)
 				return false;
 		} else if (!intentName.equals(other.intentName))
+			return false;
+		if (packageName == null) {
+			if (other.packageName != null)
+				return false;
+		} else if (!packageName.equals(other.packageName))
 			return false;
 		if (startTime == null) {
 			if (other.startTime != null)

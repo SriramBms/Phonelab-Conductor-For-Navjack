@@ -1,0 +1,20 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="edu.buffalo.cse.phonelab.testing.logcatgenerator"
+    android:versionCode="2"
+    android:versionName="1.0"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-sdk android:minSdkVersion="16" android:targetSdkVersion="16" />
+	    
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
+    <application android:label="@string/app_name"
+        android:icon="@drawable/ic_launcher"
+        android:theme="@style/AppTheme"
+        android:allowBackup="false" >
+
+        <service android:enabled="true" android:name=".LogcatGeneratorService" tools:ignore="ExportedService">
+            <intent-filter><action android:name="edu.buffalo.cse.phonelab.testing.logcatgenerator.LogcatGeneratorService"></action></intent-filter>
+        </service>
+    </application>
+</manifest>

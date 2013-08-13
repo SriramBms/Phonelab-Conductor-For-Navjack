@@ -22,7 +22,6 @@ public class ManifestService extends Service {
     ManifestTask manifestTask;
     LauncherTask launcherTask;
     LogcatTask logcatTask;
-    UsageTrackingTask usageTrackingTask;
     FileUploaderTask fileUploaderTask;
 
     private boolean started = false;
@@ -64,15 +63,6 @@ public class ManifestService extends Service {
         	}
         }
         
-        if (usageTrackingTask == null) {
-        	try {
-        		usageTrackingTask = new UsageTrackingTask(getApplicationContext());
-        	} catch (Exception e) {
-        		Log.e(TAG, "Error creating usage tracking task : " + e);
-        		return START_STICKY;
-        	}
-        }
-        
         if (fileUploaderTask == null) {
         	try {
         		fileUploaderTask = new FileUploaderTask(getApplicationContext());
@@ -85,7 +75,6 @@ public class ManifestService extends Service {
         manifestTask.start();
         logcatTask.start();
         launcherTask.start();
-        usageTrackingTask.start();
         fileUploaderTask.start();
         
         registerReceiver(stopReceiver, stopIntentFilter);
@@ -112,11 +101,6 @@ public class ManifestService extends Service {
         }
         fileUploaderTask = null;
 
-        if (usageTrackingTask != null) {
-        	usageTrackingTask.stop();
-        }
-        usageTrackingTask = null;
-        
         if (manifestTask != null) {
         	manifestTask.stop();
         }

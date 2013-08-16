@@ -32,6 +32,25 @@ import edu.buffalo.cse.phonelab.harness.lib.periodictask.PeriodicTask;
 import edu.buffalo.cse.phonelab.harness.lib.services.UploaderService;
 import edu.buffalo.cse.phonelab.harness.lib.services.UploaderService.LoggerBinder;
 
+/* We use a seperate FileUploaderService, rather than extending current 
+ * UploaderService for three reasons:
+ *
+ * - UploaderService by design is highly coupled with other components within
+ *   collector. For example, you have to register as an UploaderClient when you
+ *   bind to it, and you have to handle various things such as prepare, next,
+ *   complete, etc. Thus is it's not suitable for outside apps which just want to
+ *   upload files using as simple way as possible. 
+ *
+ * - No need to expose inner interfaces, such as UploaderClient, to public. Apps
+ *   just bind to FileUploaderService, send the file's path. And we'll take care
+ *   the rest.
+ *
+ * - There are some extra things to take care of when uploading other app's
+ *   files, such as security check, hand-shake to server to avoid redundent
+ *   uploads, etc. Extending (rather complex) UploaderSerivce could probably a
+ *   pain.
+ */
+
 public class FileUploaderService extends Service implements UploaderClient {
     private final String TAG = "PhoneLabServices-" + this.getClass().getSimpleName();
 
@@ -85,22 +104,27 @@ public class FileUploaderService extends Service implements UploaderClient {
         started = true;
     }
         
-    private void updateUploadFiles() {
+    private int updateUploadFiles() {
     	
-        state.bytesAvailable = 0;
-        state.filesAvailable = 0;
+        int bytesAvailable = 0;
+        boolean listChanged = false;
         Iterator<UploaderFileDescription> iterator = uploadFiles.iterator();
 
         while (iterator.hasNext()) {
             UploaderFileDescription uploadFile = iterator.next();
-            if (uploadFile.exists() == true) {
-                state.bytesAvailable += uploadFile.len;
-                state.filesAvailable++;
+            if (uploadFile.exists()) {
+                bytesAvailable += uploadFile.len;
             } else {
                 iterator.remove();
+                listChanged = true;
             }
         }
-        persistUploadFileList();
+
+        if (listChanged) {
+            persistUploadFileList();
+        }
+
+        return bytesAvailable;
     }
 
     private synchronized void recoverUploadFileList() {
@@ -151,7 +175,7 @@ public class FileUploaderService extends Service implements UploaderClient {
 
     @Override
     public long bytesAvailable() {
-        return state.bytesAvailable;
+        return updateUploadFiles();
     }
 
     @Override
@@ -159,8 +183,9 @@ public class FileUploaderService extends Service implements UploaderClient {
             boolean success) {
         if (success) {
             File file = new File(uploaderFileDescription.src);
-            /* truncate sent files */
-            if (file.canWrite()) {
+
+            /* first try to delete the file, if fail then truncate sent files */
+            if (!file.delete && file.canWrite()) {
                 try {
                     RandomAccessFile raf = new RandomAccessFile(file, "rw");
                     raf.setLength(0);
@@ -171,6 +196,10 @@ public class FileUploaderService extends Service implements UploaderClient {
                 }
             }
             uploadFiles.remove(path);
+            /* TODO
+             * This is kind of tedious that we have to write the whole upload
+             * file list every time the list changes.
+             */
             persistUploadFileList();
         }
     }
@@ -205,25 +234,37 @@ public class FileUploaderService extends Service implements UploaderClient {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MSG_UPLOAD_FILE: 
+                    /* TODO
+                     * need a more mature protocal
+                     */
                     ArrayList<String> content = (ArrayList<String>)msg.obj;
                     String packageName = content.get(0);
-                    ArrayList<String> paths = content.subList(1, content.size());
+                    String path = content.get(1);
+                    String hash = content.get(2);
 
-                    for (String path : paths) {
-                        UploaderFileDescription uploadFile;
-                        try {
-                            /* TODO 
-                             * may need to further check if pathName in
-                             * path
-                             */
-                            uploadFile = new UploaderFileDescription(path, (new File(path)).getName(), packageName);
-                        } catch (Exception e) {
-                            Log.w(TAG, "Couldn't create upload file from path " + path + ": " + e);
-                            continue;
+                    try {
+                        if (!hash.equals(Util.hashFile(new File(path)))) {
+                            Log.w(TAG, "Hash doesn't match of file " + path + ", package name " + packageName);
+                            return;
                         }
-                        uploadFiles.add(uploadFile);
                     }
-                    
+                    catch (Exception e) {
+                        Log.e(TAG, "Fail to check hash of file " + path + ", package name " + packageName);
+                    }
+
+                    UploaderFileDescription uploadFile;
+                    try {
+                        /* TODO 
+                         * may need to further check if pathName in
+                         * path
+                         */
+                        uploadFile = new UploaderFileDescription(path, (new File(path)).getName(), packageName);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Couldn't create upload file from path " + path + ": " + e);
+                        continue;
+                    }
+                    uploadFiles.add(uploadFile);
+
                     persistUploadFileList();
             }
         }

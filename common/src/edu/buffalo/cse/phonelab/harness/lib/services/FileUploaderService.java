@@ -1,6 +1,7 @@
 package edu.buffalo.cse.phonelab.harness.lib.services;
 
 import java.io.File;
+import java.io.RandomAccessFile;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,31 +9,27 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import org.simpleframework.xml.Element;
-import org.simpleframework.xml.Root;
 import org.simpleframework.xml.Serializer;
 import org.simpleframework.xml.core.Persister;
 
-import android.content.BroadcastReceiver;
+import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
 import android.util.Log;
 
 import edu.buffalo.cse.phonelab.harness.lib.interfaces.UploaderClient;
 import edu.buffalo.cse.phonelab.harness.lib.interfaces.UploaderFileDescription;
-import edu.buffalo.cse.phonelab.harness.lib.periodictask.PeriodicParameters;
-import edu.buffalo.cse.phonelab.harness.lib.periodictask.PeriodicState;
-import edu.buffalo.cse.phonelab.harness.lib.periodictask.PeriodicTask;
-import edu.buffalo.cse.phonelab.harness.lib.services.UploaderService;
 import edu.buffalo.cse.phonelab.harness.lib.services.UploaderService.LoggerBinder;
+import edu.buffalo.cse.phonelab.harness.lib.util.Util;
 
-/* We use a seperate FileUploaderService, rather than extending current 
+/* We use a separate FileUploaderService, rather than extending current 
  * UploaderService for three reasons:
  *
  * - UploaderService by design is highly coupled with other components within
@@ -46,7 +43,7 @@ import edu.buffalo.cse.phonelab.harness.lib.services.UploaderService.LoggerBinde
  *   the rest.
  *
  * - There are some extra things to take care of when uploading other app's
- *   files, such as security check, hand-shake to server to avoid redundent
+ *   files, such as security check, hand-shake to server to avoid redundant
  *   uploads, etc. Extending (rather complex) UploaderSerivce could probably a
  *   pain.
  */
@@ -59,13 +56,11 @@ public class FileUploaderService extends Service implements UploaderClient {
 
     private final int MSG_UPLOAD_FILE = 1;
 
-    private Set<UploaderFileDescription> uploadFiles;
+    private Set<UploaderFileDescription> uploadFiles = Collections.synchronizedSet(new HashSet<UploaderFileDescription>());
     private SharedPreferences sharedPreferences;
-    private Context context;
-    private FileUploaderReceiver fileUploaderReceiver;
     private UploaderService uploaderService;
 
-    private started = false;
+    private boolean started = false;
 
     private ServiceConnection uploaderServiceConnection = new ServiceConnection() {
         
@@ -94,14 +89,15 @@ public class FileUploaderService extends Service implements UploaderClient {
         Log.v(TAG, "-------------- STARTING FILE UPLOADER SERVICE ---------------");
 		super.onStartCommand(intent, flags, startId);
 	
-        uploadFiles = Collections.synchronizedSet(new HashSet<UploaderFileDescription>());
-        sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
         recoverUploadFileList();
         
         bindService(new Intent(this, UploaderService.class), uploaderServiceConnection, Context.BIND_AUTO_CREATE);
         
         started = true;
+
+        return START_STICKY;
     }
         
     private int updateUploadFiles() {
@@ -185,17 +181,17 @@ public class FileUploaderService extends Service implements UploaderClient {
             File file = new File(uploaderFileDescription.src);
 
             /* first try to delete the file, if fail then truncate sent files */
-            if (!file.delete && file.canWrite()) {
+            if (!file.delete() && file.canWrite()) {
                 try {
                     RandomAccessFile raf = new RandomAccessFile(file, "rw");
                     raf.setLength(0);
                     raf.close();
                 }
                 catch (Exception e) {
-                    Log.w("Failed to truncate sent file " + file.getName() + ": " + e);
+                    Log.w(TAG, "Failed to truncate sent file " + file.getName() + ": " + e);
                 }
             }
-            uploadFiles.remove(path);
+            uploadFiles.remove(uploaderFileDescription);
             /* TODO
              * This is kind of tedious that we have to write the whole upload
              * file list every time the list changes.
@@ -261,7 +257,6 @@ public class FileUploaderService extends Service implements UploaderClient {
                         uploadFile = new UploaderFileDescription(path, (new File(path)).getName(), packageName);
                     } catch (Exception e) {
                         Log.w(TAG, "Couldn't create upload file from path " + path + ": " + e);
-                        continue;
                     }
                     uploadFiles.add(uploadFile);
 

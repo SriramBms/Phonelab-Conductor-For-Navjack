@@ -59,10 +59,12 @@ public class ManifestService extends Service {
         		return START_STICKY;
         	}
         }
-        
+
         manifestTask.start();
         logcatTask.start();
         launcherTask.start();
+
+        startService(new Intent(this, FileUploaderService.class));
         
         registerReceiver(stopReceiver, stopIntentFilter);
         started = true;

@@ -10,11 +10,9 @@ import android.os.IBinder;
 import android.util.Log;
 
 import edu.buffalo.cse.phonelab.harness.lib.interfaces.ManifestClient;
-import edu.buffalo.cse.phonelab.harness.lib.tasks.FileUploaderTask;
 import edu.buffalo.cse.phonelab.harness.lib.tasks.LauncherTask;
 import edu.buffalo.cse.phonelab.harness.lib.tasks.LogcatTask;
 import edu.buffalo.cse.phonelab.harness.lib.tasks.ManifestTask;
-import edu.buffalo.cse.phonelab.harness.lib.tasks.UsageTrackingTask;
 
 public class ManifestService extends Service {
     public String TAG = "PhoneLabServices-" + this.getClass().getSimpleName();
@@ -22,7 +20,6 @@ public class ManifestService extends Service {
     ManifestTask manifestTask;
     LauncherTask launcherTask;
     LogcatTask logcatTask;
-    FileUploaderTask fileUploaderTask;
 
     private boolean started = false;
     
@@ -63,19 +60,9 @@ public class ManifestService extends Service {
         	}
         }
         
-        if (fileUploaderTask == null) {
-        	try {
-        		fileUploaderTask = new FileUploaderTask(getApplicationContext());
-        	} catch (Exception e) {
-        		Log.e(TAG, "Error creating file uploader task : " + e);
-        		return START_STICKY;
-        	}
-        }
-        
         manifestTask.start();
         logcatTask.start();
         launcherTask.start();
-        fileUploaderTask.start();
         
         registerReceiver(stopReceiver, stopIntentFilter);
         started = true;
@@ -96,11 +83,6 @@ public class ManifestService extends Service {
         }
         logcatTask = null;
         
-        if (fileUploaderTask != null) {
-        	fileUploaderTask.stop();
-        }
-        fileUploaderTask = null;
-
         if (manifestTask != null) {
         	manifestTask.stop();
         }

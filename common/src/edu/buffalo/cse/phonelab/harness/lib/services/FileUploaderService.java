@@ -246,21 +246,15 @@ public class FileUploaderService extends Service implements UploaderClient {
                     }
                     catch (Exception e) {
                         Log.e(TAG, "Fail to check hash of file " + path + ", package name " + packageName);
+                        return;
                     }
 
-                    UploaderFileDescription uploadFile;
                     try {
-                        /* TODO 
-                         * may need to further check if pathName in
-                         * path
-                         */
-                        uploadFile = new UploaderFileDescription(path, (new File(path)).getName(), packageName);
+                        uploadFiles.add(new UploaderFileDescription(path, (new File(path)).getName(), packageName));
+                        persistUploadFileList();
                     } catch (Exception e) {
                         Log.w(TAG, "Couldn't create upload file from path " + path + ": " + e);
                     }
-                    uploadFiles.add(uploadFile);
-
-                    persistUploadFileList();
             }
         }
     }

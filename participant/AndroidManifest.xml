@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="edu.buffalo.cse.phonelab.harness.participant"
-    android:versionCode="15"
+    android:versionCode="16"
     android:versionName="1.1"
     xmlns:tools="http://schemas.android.com/tools"
     android:sharedUserId="android.uid.system">

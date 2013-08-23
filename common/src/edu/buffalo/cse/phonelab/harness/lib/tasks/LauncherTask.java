@@ -52,6 +52,9 @@ public class LauncherTask extends PeriodicTask<LauncherParameters, LauncherState
 				}
 			}
 			
+			// 23 Aug 2013 : GWA : TODO : Kill old services more aggressively, as the
+			// 				 stopService method doesn't work reliably.
+			
 			for (ScheduledService stoppingService : parameters.currentStoppedServices(now)) {
 				if (!(runningServices.contains(stoppingService.packageName))) {
 					Log.v(TAG, "PhoneLab service " + stoppingService + " is not running.");

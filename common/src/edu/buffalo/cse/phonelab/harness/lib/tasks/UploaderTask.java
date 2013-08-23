@@ -212,7 +212,7 @@ public class UploaderTask extends PeriodicTask<UploaderParameters, UploaderState
 			} catch (NoSuchElementException e) {
 				Log.e(TAG, "Exception during upload loop: " + e);
 			} finally {
-				notificationManager.cancel(1);
+				notificationManager.cancel(UPLOAD_NOTIFICATION_ID);
 				Log.v(TAG, "Completed upload loop.");
 			}
 			UploaderTask.releaseLock();
